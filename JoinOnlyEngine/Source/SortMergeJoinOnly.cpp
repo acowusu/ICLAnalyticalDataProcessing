@@ -11,24 +11,24 @@
 namespace boss::engines::joinonly {
 using std::vector;
 
-size_t partition(vector<size_t> &vect, int start, int end)
+size_t partition(simplificationLayer::Column col, int start, int end)
 {
   int pivotIndex = start + (end - start) / 2;
-  size_t pivot = vect[start + (end - start) / 2];
+  simplificationLayer::Value pivot = col[start + (end - start) / 2];
   int i = start, j = end;
   while (i <= j) {
     // Get swap points
-    while (vect[i] < pivot) {
+    while (col[i] < pivot) {
       i++;
     }
-    while (vect[j] > pivot) {
+    while (col[j] > pivot) {
       j--;
     }
     if (i <= j) {
       // We need to swap!
-      size_t temp = vect[i];
-      vect[i] = vect[j];
-      vect[j] = temp;
+      simplificationLayer::Value temp = col[i];
+      col[i] = col[j];
+      col[j] = temp;
       i++;
       j--;
     }
@@ -36,11 +36,11 @@ size_t partition(vector<size_t> &vect, int start, int end)
   return i;
 }
 
-void quicksort(vector<size_t> &vect, int start, int end) {
+void quicksort(simplificationLayer::Column &col, int start, int end) {
   if (start < end) {
-    int pivotIndex = partition(vect, start, end);
-    quicksort(vect, start, pivotIndex - 1);
-    quicksort(vect, pivotIndex, end);
+    int pivotIndex = partition(col, start, end);
+    quicksort(col, start, pivotIndex - 1);
+    quicksort(col, pivotIndex, end);
   }
 }
 
@@ -62,7 +62,7 @@ class Engine {
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
     auto cursors = vector<int>(input.size(), 0);
 
-    auto const& sortedInput = sortVectorTable(input, joinAttributeIndices);
+    sortVectorTable(input, joinAttributeIndices);
 
     auto const makeCursorsOverflow = [&]() {
       for(auto i = cursors.size() - 1; i > 0; i--) {
