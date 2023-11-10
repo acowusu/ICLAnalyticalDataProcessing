@@ -11,24 +11,62 @@
 namespace boss::engines::joinonly {
 using std::vector;
 
-size_t partition(simplificationLayer::Column col, int start, int end)
+// size_t partition(simplificationLayer::Column col, int start, int end)
+// {
+//   int pivotIndex = start + (end - start) / 2;
+//   simplificationLayer::Value pivot = col[start + (end - start) / 2];
+//   int i = start, j = end;
+//   while (i <= j) {
+//     // Get swap points
+//     while (col[i] < pivot) {
+//       i++;
+//     }
+//     while (col[j] > pivot) {
+//       j--;
+//     }
+//     if (i <= j) {
+//       // We need to swap!
+//       simplificationLayer::Value temp = col[i];
+//       col[i] = col[j];
+//       col[j] = temp;
+//       i++;
+//       j--;
+//     }
+//   }
+//   return i;
+// }
+
+// void quicksort(simplificationLayer::Column &col, int start, int end) {
+//   if (start < end) {
+//     int pivotIndex = partition(col, start, end);
+//     quicksort(col, start, pivotIndex - 1);
+//     quicksort(col, pivotIndex, end);
+//   }
+// }
+
+size_t partition_tab(vector<simplificationLayer::Column> tab, size_t index, int start, int end)
 {
   int pivotIndex = start + (end - start) / 2;
-  simplificationLayer::Value pivot = col[start + (end - start) / 2];
+  simplificationLayer::Value pivot = tab[index][start + (end - start) / 2];
   int i = start, j = end;
   while (i <= j) {
     // Get swap points
-    while (col[i] < pivot) {
+    while (tab[index][i] < pivot) {
       i++;
     }
-    while (col[j] > pivot) {
+    while (tab[index][j] > pivot) {
       j--;
     }
-    if (i <= j) {
-      // We need to swap!
-      simplificationLayer::Value temp = col[i];
-      col[i] = col[j];
-      col[j] = temp;
+     if (i <= j) {
+      // We need to swap the rows!
+      for (size_t columnIndex = 0; i < tab.size(); i++)
+      {
+        simplificationLayer::Value temp = tab[columnIndex][i];
+        tab[columnIndex][i] = tab[columnIndex][j];
+        tab[columnIndex][j] = temp;
+      }
+      
+      
       i++;
       j--;
     }
@@ -36,19 +74,28 @@ size_t partition(simplificationLayer::Column col, int start, int end)
   return i;
 }
 
-void quicksort(simplificationLayer::Column &col, int start, int end) {
+void quicksort_tab(vector<simplificationLayer::Column> tab, size_t index, int start, int end) {
   if (start < end) {
-    int pivotIndex = partition(col, start, end);
-    quicksort(col, start, pivotIndex - 1);
-    quicksort(col, pivotIndex, end);
+    int pivotIndex = partition_tab(tab, index, start, end);
+    quicksort_tab(tab, index, start, pivotIndex - 1);
+    quicksort_tab(tab, index, pivotIndex, end);
   }
 }
 
 auto sortVectorTable(std::vector<simplificationLayer::Table> input, std::vector<std::pair<size_t, size_t>> joinAttributeIndicies) {
   // Sort n table by n'th join attr's first element, 
   // then sort n+1 table by n'th attr's second element, then repeat
+
+  //
+  vector<vector<simplificationLayer::Value>> relevantCols;
+  for (size_t i = 0; i < joinAttributeIndicies.size(); i++)
+  {
+    quicksort_tab(input[i], joinAttributeIndicies[i].first, 0, input[i].size());
+    quicksort_tab(input[i+1], joinAttributeIndicies[i].second, 0, input[i+1].size());
+  }
   
-  return input;
+  
+  return relevantCols;
 }
 
 class Engine {
