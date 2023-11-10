@@ -44,20 +44,21 @@ using std::vector;
 //   }
 // }
 
-size_t partition_tab(vector<simplificationLayer::Column> tab, size_t index, int start, int end)
+size_t partition_tab(vector<simplificationLayer::Column> tab, size_t p_index, size_t s_index, int start, int end)
 {
   int pivotIndex = start + (end - start) / 2;
-  simplificationLayer::Value pivot = tab[index][start + (end - start) / 2];
+  simplificationLayer::Value p_pivot = tab[p_index][start + (end - start) / 2];
   int i = start, j = end;
   while (i <= j) {
     // Get swap points
-    while (tab[index][i] < pivot) {
+    while (tab[p_index][i] < p_pivot) {
       i++;
     }
-    while (tab[index][j] > pivot) {
+    while (tab[p_index][j] > p_pivot) {
       j--;
     }
-     if (i <= j) {
+    // If i < j, or i = j and (no secondary index or secondary index value is unsorted)
+    if (i < j || (i <= j && (s_index != -1 || tab[s_index][i] > tab[s_index][j]))) {
       // We need to swap the rows!
       for (size_t columnIndex = 0; i < tab.size(); i++)
       {
@@ -74,11 +75,14 @@ size_t partition_tab(vector<simplificationLayer::Column> tab, size_t index, int 
   return i;
 }
 
-void quicksort_tab(vector<simplificationLayer::Column> tab, size_t index, int start, int end) {
+/**
+ * If secondary_sort_index is -1, ignore.
+*/
+void quicksort_tab(vector<simplificationLayer::Column> tab, size_t primary_sort_index, size_t secondary_sort_index, int start, int end) {
   if (start < end) {
-    int pivotIndex = partition_tab(tab, index, start, end);
-    quicksort_tab(tab, index, start, pivotIndex - 1);
-    quicksort_tab(tab, index, pivotIndex, end);
+    int pivotIndex = partition_tab(tab, primary_sort_index, secondary_sort_index, start, end);
+    quicksort_tab(tab, primary_sort_index, secondary_sort_index, start, pivotIndex - 1);
+    quicksort_tab(tab, primary_sort_index, secondary_sort_index, pivotIndex, end);
   }
 }
 
@@ -86,13 +90,21 @@ auto sortVectorTable(std::vector<simplificationLayer::Table> input, std::vector<
   // Sort n table by n'th join attr's first element, 
   // then sort n+1 table by n'th attr's second element, then repeat
 
-  //
+  // This is not tested.
   vector<vector<simplificationLayer::Value>> relevantCols;
-  for (size_t i = 0; i < joinAttributeIndicies.size(); i++)
+
+  // Initial sort
+  quicksort_tab(input[1], joinAttributeIndicies[1].first, -1, 0, input[i].size());
+  
+  size_t i = 1;
+  for (; i < joinAttributeIndicies.size() - 1; i++)
   {
-    quicksort_tab(input[i], joinAttributeIndicies[i].first, 0, input[i].size());
-    quicksort_tab(input[i+1], joinAttributeIndicies[i].second, 0, input[i+1].size());
+    // Middle sorts, have a secondary sort
+    quicksort_tab(input[i], joinAttributeIndicies[i-1].second, joinAttributeIndicies[i].first, 0, input[i].size());
   }
+
+  // Last sort
+  quicksort_tab(input[i], joinAttributeIndicies[i-1].second, -1, 0, input[i].size());
   
   
   return relevantCols;
