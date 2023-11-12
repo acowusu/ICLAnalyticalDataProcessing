@@ -120,31 +120,47 @@ class Engine {
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
     auto cursors = vector<int>(input.size(), 0);
+    /*
+    We sort the x input tables, then we consider x cursors
+
+    Table 0    Table 1    Table 2
+    1           1   1     1
+    2           1   2     2
+    3           2   3     3
+    5           3   4     5
+    6           4   5     6
+                5   6
+
+    Start at table 0, check table0[cursor[0]][index[0][0]] = table1[cursor[1]][index[0][1]]  
+    then              check table1[cursor[1]][index[1][0]] = table2[cursor[2]][index[1][1]] ...etc
+    */
 
     sortVectorTable(input, joinAttributeIndices);
 
-    auto const makeCursorsOverflow = [&]() {
-      for(auto i = cursors.size() - 1; i > 0; i--) {
-        if(cursors[i] >= input[i][0].size()) {
-          cursors[i] = 0;
-          cursors[i - 1]++;
-        }
-      }
-    };
-
-    for(; cursors[0] < input[0][0].size();) {
-      auto isAMatchSoFar = true;
-      for(auto i = 1U; isAMatchSoFar && i < input.size(); i++) {
-        if(input[i - 1][joinAttributeIndices[i - 1].first][cursors[i - 1]] !=
-           input[i][joinAttributeIndices[i - 1].second][cursors[i]]) {
-          isAMatchSoFar = false;
+    for (; cursors[0] < input[0][0].size();) {
+      auto match = true;
+      auto i = 0;
+      for (; i < joinAttributeIndices.size(); ) {
+        auto v1 = input[i][cursors[i]][joinAttributeIndices[i].first];
+        auto v2 = input[i+1][cursors[i+1]][joinAttributeIndices[i].second];
+        if (v1 > v2) {
+          cursors[i+1]++;
+          // if overflow
+          if (cursors[i+1] >= input[i+1].size()) {
+            match = false;
+            break;
+          }
+        } else if (v2 > v1) {
           cursors[i]++;
-          for(auto j = i + 1; j < input.size(); j++) {
-            cursors[j] = 0;
+          // if overflow
+          if (cursors[i] >= input[i].size()) {
+            match = false;
+            break;
           }
         }
-      }
-      if(isAMatchSoFar) {
+        // Match!
+      };
+      if(match) {
         vector<simplificationLayer::Value> resultTuple;
         for(auto i = 0u; i < input.size(); i++) {
           for(auto& column : input[i]) {
@@ -153,9 +169,46 @@ class Engine {
         }
         cursors.back()++;
         helper.appendOutput(resultTuple);
+      } else {
+        // No match
+        break;
       }
-      makeCursorsOverflow();
-    }
+    };
+
+    // auto const makeCursorsOverflow = [&]() {
+    //   /* For each cursor, if the cursor is beyond the tables size, then set it equal to 0, and increment the previous cursor*/
+    //   for(auto i = cursors.size() - 1; i > 0; i--) {
+    //     if(cursors[i] >= input[i][0].size()) {
+    //       cursors[i] = 0;
+    //       cursors[i - 1]++;
+    //     }
+    //   }
+    // };
+
+    // for(; cursors[0] < input[0][0].size();) {
+    //   auto isAMatchSoFar = true;
+    //   for(auto i = 1U; isAMatchSoFar && i < input.size(); i++) {
+    //     if(input[i - 1][joinAttributeIndices[i - 1].first][cursors[i - 1]] !=
+    //        input[i][joinAttributeIndices[i - 1].second][cursors[i]]) {
+    //       isAMatchSoFar = false;
+    //       cursors[i]++;
+    //       for(auto j = i + 1; j < input.size(); j++) {
+    //         cursors[j] = 0;
+    //       }
+    //     }
+    //   }
+    //   if(isAMatchSoFar) {
+    //     vector<simplificationLayer::Value> resultTuple;
+    //     for(auto i = 0u; i < input.size(); i++) {
+    //       for(auto& column : input[i]) {
+    //         resultTuple.push_back(column[cursors[i]]);
+    //       }
+    //     }
+    //     cursors.back()++;
+    //     helper.appendOutput(resultTuple);
+    //   }
+    //   makeCursorsOverflow();
+    // }
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
