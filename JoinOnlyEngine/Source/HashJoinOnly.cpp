@@ -7,6 +7,8 @@
 #include <ExpressionUtilities.hpp>
 #include <Utilities.hpp>
 #include <mutex>
+#include <optional>
+#include <vector>
 
 namespace boss::engines::joinonly {
 using std::vector;
@@ -17,6 +19,55 @@ class Engine {
     ////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Your code starts here ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
+
+    auto const& input = helper.getInputs();
+    auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
+
+/**
+ * THIS IS CURRENTLY ONLY A HASHJOIN SINGLEWAY.
+ *
+ * TODO: MAKE MULTIWAY
+ */
+
+    std::hash<simplificationLayer::Value> valueHash;
+    // Chose first table as build table
+    // First in pair is the value, second is index
+    vector<std::optional<std::pair<simplificationLayer::Value, size_t>>> hashTable;
+    int nextSlot;
+
+    // Build!!
+    for (int i = 0; i < input[0][0].size(); i++) {
+      auto buildValue = input[0][joinAttributeIndices[0].first];
+      int hash = valueHash(buildValue);
+      // Handle repeats
+      while (hashTable[hash].hasValue)
+        hash = (hash + 1) % hashTable.size();
+      hashTable[hash].first = buildValue;
+      hashTable[hash].second = i;
+    }
+
+    // Join!!
+    for (int i = 0; i < input[1][0].size(); i++) {
+      auto probeInput = input[1][joinAttributeIndices[0].second];
+      int hash = valueHash(probeInput);
+      while (hashTable[hash].hasValue && hashTable[hash].value.first != probeInput)
+        hash = (hash + 1) % hashTable.size();
+
+      if (hashTable[hash].value.first == probeInput) {
+        vector<simplificationLayer::Value> resultTuple;
+        for(auto& column : input[0]) {
+          // Built table
+          resultTuple.push_back(column[hashTable[hash].value.second]);
+        }
+        for(auto& column : input[1]) {
+          // Probe table
+          resultTuple.push_back(column[i]);
+        }
+        // Append
+        helper.appendOutput(resultTuple);
+      }
+
+    }
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
