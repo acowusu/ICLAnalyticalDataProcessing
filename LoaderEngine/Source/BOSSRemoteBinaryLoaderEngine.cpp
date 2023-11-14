@@ -209,6 +209,7 @@ struct EngineImplementation {
     if(auto localCacheFile = std::ifstream(localCacheFilename, std::ios::binary | std::ios::ate)) {
       auto size = localCacheFile.tellg();
       auto buffer = (char*)malloc(size);
+      localCacheFile.seekg(0);
       localCacheFile.read(buffer, size);
       writeResponseFunc(buffer, 1, size, respArgs);
       free(buffer);
