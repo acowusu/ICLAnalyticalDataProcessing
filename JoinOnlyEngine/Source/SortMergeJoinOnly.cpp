@@ -94,7 +94,7 @@ auto sortVectorTable(std::vector<simplificationLayer::Table> input, std::vector<
   vector<vector<simplificationLayer::Value>> relevantCols;
 
   // Initial sort
-  quicksort_tab(input[1], joinAttributeIndicies[1].first, -1, 0, input[i].size());
+  quicksort_tab(input[1], joinAttributeIndicies[1].first, -1, 0, input[0].size());
   
   size_t i = 1;
   for (; i < joinAttributeIndicies.size() - 1; i++)
