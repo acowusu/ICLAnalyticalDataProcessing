@@ -141,7 +141,7 @@ You shall implement two engines, one implementing a sort-merge join, the other i
 
 **Implement only in those files! You must not create any new files in the repository!**
 
-**You must not use any templates beyond `vector`, `array`, `tuple`, `pair`, `function`, `visit` and `get`. No other containers, no algorithms. You are allowed to use any function from the c standard library.**
+**You must not use any templates beyond `vector`, `array`, `tuple`, `pair`, `function`, `visit`, `get` and `holds_alternative`. No other containers, no algorithms. You are allowed to use any function from the c standard library.**
 
 #### Testing
 
