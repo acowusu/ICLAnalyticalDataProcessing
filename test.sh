@@ -1,3 +1,3 @@
 cd build
-./Tests --library JoinOnlyEngine/libNestedLoopJoinOnlyEngine.so\
+./Tests --library JoinOnlyEngine/libSortMergeJoinOnlyEngine.so\
         --library VolcanoEngine/libVolcanoEngine.so

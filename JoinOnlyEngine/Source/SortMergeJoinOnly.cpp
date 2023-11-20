@@ -7,119 +7,118 @@
 #include <ExpressionUtilities.hpp>
 #include <Utilities.hpp>
 #include <mutex>
+#include <vector>
+#include <iostream>
+#include <variant>
 
 namespace boss::engines::joinonly {
 using std::vector;
 
-// size_t partition(simplificationLayer::Column col, int start, int end)
-// {
-//   int pivotIndex = start + (end - start) / 2;
-//   simplificationLayer::Value pivot = col[start + (end - start) / 2];
-//   int i = start, j = end;
-//   while (i <= j) {
-//     // Get swap points
-//     while (col[i] < pivot) {
-//       i++;
-//     }
-//     while (col[j] > pivot) {
-//       j--;
-//     }
-//     if (i <= j) {
-//       // We need to swap!
-//       simplificationLayer::Value temp = col[i];
-//       col[i] = col[j];
-//       col[j] = temp;
-//       i++;
-//       j--;
-//     }
-//   }
-//   return i;
-// }
 
-// void quicksort(simplificationLayer::Column &col, int start, int end) {
-//   if (start < end) {
-//     int pivotIndex = partition(col, start, end);
-//     quicksort(col, start, pivotIndex - 1);
-//     quicksort(col, pivotIndex, end);
-//   }
-// }
-
-size_t partition_tab(vector<simplificationLayer::Column> tab, size_t p_index, size_t s_index, int start, int end)
+size_t partitionTable(vector<simplificationLayer::Column> & table, int primary_sort_index, int secondary_sort_index, size_t start, size_t end)
 {
-  int pivotIndex = start + (end - start) / 2;
-  simplificationLayer::Value p_pivot = tab[p_index][start + (end - start) / 2];
-  int i = start, j = end;
-  while (i <= j) {
+  std::vector<simplificationLayer::Value>& pivot_column = table[primary_sort_index];
+//  std::vector<simplificationLayer::Value>& secondary_pivot_column = table[secondary_sort_index];
+
+  size_t pivot_index = start + (end - start) / 2;
+  simplificationLayer::Value pivot_value = pivot_column[pivot_index];
+  size_t i = start, j = end;
+  while (1) {
     // Get swap points
-    while (tab[p_index][i] < p_pivot) {
+    do {
       i++;
-    }
-    while (tab[p_index][j] > p_pivot) {
+    } while (pivot_column[i] < pivot_value);
+    do {
       j--;
+    } while (pivot_column[j] > pivot_value);
+    if(i >= j) {
+      return j;
     }
     // If i < j, or i = j and (no secondary index or secondary index value is unsorted)
-    if (i < j || (i <= j && (s_index != -1 || tab[s_index][i] > tab[s_index][j]))) {
+    // SEGFAULT HERE
+//    bool secondary_sort = secondary_sort_index != -1 && secondary_pivot_column[i] > secondary_pivot_column[j];
+//    if (i < j || (i <= j && secondary_sort)) {
       // We need to swap the rows!
-      for (size_t columnIndex = 0; i < tab.size(); i++)
+      for (size_t columnIndex = 0; i < table.size(); i++)
       {
-        simplificationLayer::Value temp = tab[columnIndex][i];
-        tab[columnIndex][i] = tab[columnIndex][j];
-        tab[columnIndex][j] = temp;
+        simplificationLayer::Value temp = table[columnIndex][i];
+        table[columnIndex][i] = table[columnIndex][j];
+        table[columnIndex][j] = temp;
       }
-      
-      
-      i++;
-      j--;
-    }
+
   }
-  return i;
 }
 
 /**
  * If secondary_sort_index is -1, ignore.
 */
-void quicksort_tab(vector<simplificationLayer::Column> tab, size_t primary_sort_index, size_t secondary_sort_index, int start, int end) {
-  if (start < end) {
-    int pivotIndex = partition_tab(tab, primary_sort_index, secondary_sort_index, start, end);
-    quicksort_tab(tab, primary_sort_index, secondary_sort_index, start, pivotIndex - 1);
-    quicksort_tab(tab, primary_sort_index, secondary_sort_index, pivotIndex, end);
+// Sorts a table in place in ascending order by primary_sort_index, then secondary_sort_index
+void quicksortTable(vector<simplificationLayer::Column>& table, int primary_sort_index, int secondary_sort_index, int start, int end) {
+  if (start >=  end || start < 0 || end < 0) {
+    return;
   }
+  int pivot_index = partitionTable(table, primary_sort_index, secondary_sort_index, start, end);
+  quicksortTable(table, primary_sort_index, secondary_sort_index, start, pivot_index);
+  quicksortTable(table, primary_sort_index, secondary_sort_index, pivot_index+1, end);
+
 }
 
-auto sortVectorTable(std::vector<simplificationLayer::Table> input, std::vector<std::pair<size_t, size_t>> joinAttributeIndicies) {
-  // Sort n table by n'th join attr's first element, 
+  // Sort n table by n'th join attr's first element,
   // then sort n+1 table by n'th attr's second element, then repeat
+void sortVectorTable(std::vector<simplificationLayer::Table> input, std::vector<std::pair<size_t, size_t>> join_attribute_indicies) {
 
   // This is not tested.
-  vector<vector<simplificationLayer::Value>> relevantCols;
+//  vector<vector<simplificationLayer::Value>> relevantCols;
 
   // Initial sort
-  quicksort_tab(input[1], joinAttributeIndicies[1].first, -1, 0, input[0].size());
+  simplificationLayer::Table& first_table = input[0];
+  quicksortTable(first_table, join_attribute_indicies.front().first, -1, 0, first_table.size()-1);
   
-  size_t i = 1;
-  for (; i < joinAttributeIndicies.size() - 1; i++)
+
+  for (size_t i = 1; i < join_attribute_indicies.size() - 1; i++)
   {
-    // Middle sorts, have a secondary sort
-    quicksort_tab(input[i], joinAttributeIndicies[i-1].second, joinAttributeIndicies[i].first, 0, input[i].size());
+    simplificationLayer::Table& table = input[i];
+    // Middle sorts, have a secondary sort index
+    quicksortTable(table, join_attribute_indicies[i-1].second, join_attribute_indicies[i].first, 0, table.size()-1);
   }
 
   // Last sort
-  quicksort_tab(input[i], joinAttributeIndicies[i-1].second, -1, 0, input[i].size());
+  simplificationLayer::Table& last_table = input.back();
+  quicksortTable(last_table, join_attribute_indicies.back().second, -1, 0, last_table.size()-1);
   
-  
-  return relevantCols;
+//  return relevantCols;
 }
 
 class Engine {
   simplificationLayer::JoinHelper performMultiwayJoin(simplificationLayer::JoinHelper&& helper) {
+
 
     ////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Your code starts here ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
 
     auto const& input = helper.getInputs();
-    auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
+    std::vector<std::pair<size_t, size_t>> const& join_attribute_indices = helper.getJoinAttributeIndices();
     auto cursors = vector<int>(input.size(), 0);
+
+
+    // Suppose we had cursors [0, 0] and table sizes [2, 2]. Then we would want to increment as
+    // follows:
+    // [0, 0] -> [0, 0]
+    // [0, 1] -> [0, 1]
+    // [0, 2] -> [1, 0]
+    // [1, 0] -> [1, 0]
+    // [1, 2] -> [2, 0]
+    // The idea is we maintain the invaruant that all cursors will point to a table value except
+    // possibly the first one.
+    auto const makeCursorsOverflow = [&]() {
+      for(auto i = cursors.size() - 1; i > 0; i--) {
+        if(cursors[i] >= input[i][0].size()) {
+          cursors[i] = 0;
+          cursors[i - 1]++;
+        }
+      }
+    };
     /*
     We sort the x input tables, then we consider x cursors
 
@@ -135,39 +134,73 @@ class Engine {
     then              check table1[cursor[1]][index[1][0]] = table2[cursor[2]][index[1][1]] ...etc
     */
 
-    sortVectorTable(input, joinAttributeIndices);
+    sortVectorTable(input, join_attribute_indices);
 
+
+
+    size_t const num_join_attributes = join_attribute_indices.size();
     for (; cursors[0] < input[0][0].size();) {
       auto match = true;
-      auto i = 0;
-      for (; i < joinAttributeIndices.size(); ) {
-        auto v1 = input[i][cursors[i]][joinAttributeIndices[i].first];
-        auto v2 = input[i+1][cursors[i+1]][joinAttributeIndices[i].second];
-        if (v1 > v2) {
-          cursors[i+1]++;
-          // if overflow
-          if (cursors[i+1] >= input[i+1].size()) {
-            match = false;
-            break;
+     // -- Begin for each join attribute --
+      for ( size_t i = 0; i < num_join_attributes; ) {
+        vector<simplificationLayer::Column> const& left_table = input[i];
+        vector<simplificationLayer::Column> const& right_table = input[i+1];
+
+        simplificationLayer::Value lv = left_table[join_attribute_indices[i].first][cursors[i]];
+        simplificationLayer::Value rv = right_table[join_attribute_indices[i].second][cursors[i+1]];
+//        If the RV is too small, increment the right cursor until it is GEQ the LV.
+        std::cout << std::get<int64_t>(lv) << " " << std::get<int64_t>(rv) << std::endl;
+
+//        todo: binary search
+          while (lv > rv) {
+            cursors[i+1]++;
+            // if overflow
+            if (cursors[i+1] >= right_table.size()) {
+              match = false;
+              break;
+            }
+            rv = right_table[cursors[i+1]][join_attribute_indices[i].second];
           }
-        } else if (v2 > v1) {
+
+//        Then if EQ continue to next table
+          if (lv == rv) {
+//            todo: check if the next row is also equal.
+            i++;
+            continue;
+
+          }
+
+//        Otherwise we must have a LV that is too small
+//        If the LV is too small, there must be no match with the current set of cursors we have been
+//        building. There might have been a duplicate key somewhere so we dont want to start from
+//        scratch on the first table, but we do want to advace the previous table's cursor.
+
+        if (lv < rv) {
+
           cursors[i]++;
           // if overflow
-          if (cursors[i] >= input[i].size()) {
+          if (cursors[i] >= left_table.size()) {
             match = false;
             break;
           }
         }
         // Match!
-      };
+      }; // -- End for each join attribute --
+
+//      Getting to here means either
+      //      1) we have a match at the location of the current cursors
+      //      2) we need to advance the cursors from the first table
       if(match) {
+        std::cout << "Match!" << std::endl;
         vector<simplificationLayer::Value> resultTuple;
         for(auto i = 0u; i < input.size(); i++) {
-          for(auto& column : input[i]) {
+          vector<simplificationLayer::Column> const& table = input[i];
+          for(auto& column : table) {
             resultTuple.push_back(column[cursors[i]]);
           }
         }
         cursors.back()++;
+        makeCursorsOverflow();
         helper.appendOutput(resultTuple);
       } else {
         // No match
@@ -175,40 +208,7 @@ class Engine {
       }
     };
 
-    // auto const makeCursorsOverflow = [&]() {
-    //   /* For each cursor, if the cursor is beyond the tables size, then set it equal to 0, and increment the previous cursor*/
-    //   for(auto i = cursors.size() - 1; i > 0; i--) {
-    //     if(cursors[i] >= input[i][0].size()) {
-    //       cursors[i] = 0;
-    //       cursors[i - 1]++;
-    //     }
-    //   }
-    // };
 
-    // for(; cursors[0] < input[0][0].size();) {
-    //   auto isAMatchSoFar = true;
-    //   for(auto i = 1U; isAMatchSoFar && i < input.size(); i++) {
-    //     if(input[i - 1][joinAttributeIndices[i - 1].first][cursors[i - 1]] !=
-    //        input[i][joinAttributeIndices[i - 1].second][cursors[i]]) {
-    //       isAMatchSoFar = false;
-    //       cursors[i]++;
-    //       for(auto j = i + 1; j < input.size(); j++) {
-    //         cursors[j] = 0;
-    //       }
-    //     }
-    //   }
-    //   if(isAMatchSoFar) {
-    //     vector<simplificationLayer::Value> resultTuple;
-    //     for(auto i = 0u; i < input.size(); i++) {
-    //       for(auto& column : input[i]) {
-    //         resultTuple.push_back(column[cursors[i]]);
-    //       }
-    //     }
-    //     cursors.back()++;
-    //     helper.appendOutput(resultTuple);
-    //   }
-    //   makeCursorsOverflow();
-    // }
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
