@@ -135,11 +135,32 @@ class Engine {
     */
 
     sortVectorTable(input, join_attribute_indices);
-
-
+    int debug = 1;
+    if(debug == 1){
+        std::cout << "Sorted Tables" << std::endl;
+        std::cout << "Count: " << input.size() << std::endl;
+        for(int i = 0; i < input.size(); i++) {
+          std::cout << "Table " << i  << std::endl;
+          for(int j = 0; j < input[i][0].size(); j++){
+            std::cout <<  std::get<int64_t>(input[i][0][j])  << " " << std::get<int64_t>(input[i][1][j])  << std::endl;
+          }
+        }
+        std::cout << "Join Attribute Indices" << std::endl;
+        for(int i = 0; i < join_attribute_indices.size(); i++) {
+          std::cout << join_attribute_indices[i].first << " " << join_attribute_indices[i].second << std::endl;
+        }
+        std::cout << "END DEBUG" << std::endl;
+    }
 
     size_t const num_join_attributes = join_attribute_indices.size();
     for (; cursors[0] < input[0][0].size();) {
+        if(debug == 1) {
+          std::cout << "Cursors: ";
+          for (int i = 0; i < cursors.size(); i++) {
+            std::cout << cursors[i] << " ";
+          }
+          std::cout << std::endl;
+        }
       auto match = true;
      // -- Begin for each join attribute --
       for ( size_t i = 0; i < num_join_attributes; ) {
@@ -155,7 +176,7 @@ class Engine {
           while (lv > rv) {
             cursors[i+1]++;
             // if overflow
-            if (cursors[i+1] >= right_table.size()) {
+            if (cursors[i+1] >= right_table[0].size()) {
               match = false;
               break;
             }
@@ -179,7 +200,7 @@ class Engine {
 
           cursors[i]++;
           // if overflow
-          if (cursors[i] >= left_table.size()) {
+          if (cursors[i] >= left_table[0].size()) {
             match = false;
             break;
           }
@@ -191,13 +212,20 @@ class Engine {
       //      1) we have a match at the location of the current cursors
       //      2) we need to advance the cursors from the first table
       if(match) {
-        std::cout << "Match!" << std::endl;
+        std::cout << "Match!";
+
         vector<simplificationLayer::Value> resultTuple;
         for(auto i = 0u; i < input.size(); i++) {
           vector<simplificationLayer::Column> const& table = input[i];
           for(auto& column : table) {
             resultTuple.push_back(column[cursors[i]]);
+            if (debug == 1) {
+              std::cout << std::get<int64_t>(column[cursors[i]]) << " ";
+            }
           }
+        }
+        if (debug == 1) {
+          std::cout << std::endl;
         }
         cursors.back()++;
         makeCursorsOverflow();
