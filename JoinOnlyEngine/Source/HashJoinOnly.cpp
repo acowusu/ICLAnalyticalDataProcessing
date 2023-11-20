@@ -19,7 +19,7 @@ class Engine {
     ////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Your code starts here ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
-
+  //std::vector<Table> const&
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
@@ -36,28 +36,33 @@ class Engine {
     int nextSlot;
 
     // Build!!
-    for (int i = 0; i < input[0][0].size(); i++) {
-      auto buildValue = input[0][joinAttributeIndices[0].first];
+    auto &buildTable = input[0];
+    for (int i = 0; i < buildTable[0].size(); i++) {
+      auto &buildRow = buildTable[i];
+
+      auto buildValue =buildRow[joinAttributeIndices[0].first];
       int hash = valueHash(buildValue);
       // Handle repeats
-      while (hashTable[hash].hasValue)
+      while (hashTable[hash].has_value())
         hash = (hash + 1) % hashTable.size();
-      hashTable[hash].first = buildValue;
-      hashTable[hash].second = i;
+      hashTable[hash]->first = buildValue;
+      hashTable[hash]->second = i;
     }
 
     // Join!!
-    for (int i = 0; i < input[1][0].size(); i++) {
-      auto probeInput = input[1][joinAttributeIndices[0].second];
+    auto &probeTable = input[1];
+    for (int i = 0; i < probeTable[0].size(); i++) {
+      auto &probeRow = probeTable[i];
+      auto probeInput = probeRow[joinAttributeIndices[0].second];
       int hash = valueHash(probeInput);
-      while (hashTable[hash].hasValue && hashTable[hash].value.first != probeInput)
+      while (hashTable[hash].has_value() && hashTable[hash].value().first != probeInput)
         hash = (hash + 1) % hashTable.size();
 
-      if (hashTable[hash].value.first == probeInput) {
+      if (hashTable[hash].value().first == probeInput) {
         vector<simplificationLayer::Value> resultTuple;
         for(auto& column : input[0]) {
           // Built table
-          resultTuple.push_back(column[hashTable[hash].value.second]);
+          resultTuple.push_back(column[hashTable[hash].value().second]);
         }
         for(auto& column : input[1]) {
           // Probe table
