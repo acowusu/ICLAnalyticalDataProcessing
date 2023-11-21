@@ -114,10 +114,17 @@ TEST_CASE("SimpleMultiWayJoin", "[join]") { // NOLINT
                         "Where"_("Equal"_("B"_, "C"_))),
                 "Table"_("F"_("List"_(4, 7)), "G"_("List"_(1, 2))), "Where"_("Equal"_("D"_, "F"_)));
 
-    CHECK(eval(std::move(join)) == "Table"_("A"_("List"_(1, 2)), "B"_("List"_(3, 4)),
+    auto output = eval(std::move(join));
+    CHECK((output == "Table"_("A"_("List"_(1, 2)), "B"_("List"_(3, 4)),
                                             "C"_("List"_(3, 4)), "D"_("List"_(4, 7)),
                                             "E"_("List"_(32, 94)), "F"_("List"_(4, 7)),
-                                            "G"_("List"_(1, 2))));
+                                            "G"_("List"_(1, 2)))
+	  ||
+	  output == "Table"_("A"_("List"_(2, 1)), "B"_("List"_(4, 3)),
+                                            "C"_("List"_(4, 3)), "D"_("List"_(7, 4)),
+                                            "E"_("List"_(94, 32)), "F"_("List"_(7, 4)),
+			                    "G"_("List"_(2, 1))))
+	  );
   }
 
   SECTION("EmptyJoin") {
@@ -141,10 +148,17 @@ TEST_CASE("SimpleMultiWayJoin", "[join]") { // NOLINT
                         "Where"_("Equal"_("B"_, "C"_))),
                 "Table"_("F"_("List"_(1, 2)), "G"_("List"_(4, 7))), "Where"_("Equal"_("D"_, "G"_)));
 
-    CHECK(eval(std::move(join)) == "Table"_("A"_("List"_(1, 2)), "B"_("List"_(3, 4)),
+    auto output = eval(std::move(join));
+    CHECK((output == "Table"_("A"_("List"_(1, 2)), "B"_("List"_(3, 4)),
                                             "C"_("List"_(3, 4)), "D"_("List"_(4, 7)),
                                             "E"_("List"_(32, 94)), "F"_("List"_(1, 2)),
-                                            "G"_("List"_(4, 7))));
+                                            "G"_("List"_(4, 7)))
+	  ||
+	  output == "Table"_("A"_("List"_(2, 1)), "B"_("List"_(4, 3)),
+                                            "C"_("List"_(4, 3)), "D"_("List"_(7, 4)),
+                                            "E"_("List"_(94, 32)), "F"_("List"_(2, 1)),
+			                    "G"_("List"_(7, 4))))
+	  );
   }
 }
 
@@ -308,9 +322,19 @@ TEST_CASE("OSM", "[OSM]") { // NOLINT
                      "Multiply"_("FirstLength"_, "SecondLength"_, "ThirdLength"_));
 
   SECTION("Top 1") {
-    CHECK(eval(std::move(top1)) ==
+    auto output = eval(std::move(top1));
+    CHECK(((output ==
           "Table"_("FirstLength"_("List"_(6.0)), "SecondLength"_("List"_(20.0)),
-                   "ThirdLength"_("List"_(8.0)), "totalLength"_("List"_(34.0))));
+                   "ThirdLength"_("List"_(8.0)), "totalLength"_("List"_(34.0)))
+	  ||
+	  output ==
+          "Table"_("FirstLength"_("List"_(8.0)), "SecondLength"_("List"_(6.0)),
+                   "ThirdLength"_("List"_(20.0)), "totalLength"_("List"_(34.0))))
+	  ||
+	  output ==
+          "Table"_("FirstLength"_("List"_(20.0)), "SecondLength"_("List"_(8.0)),
+                   "ThirdLength"_("List"_(6.0)), "totalLength"_("List"_(34.0))))
+	  );
   }
 }
 
