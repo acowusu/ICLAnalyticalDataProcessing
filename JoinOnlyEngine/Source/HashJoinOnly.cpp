@@ -20,6 +20,22 @@ class Engine {
     ////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Your code starts here ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
+    /// 1 3 - 3 4  32 - 4 1
+    /// 2 4 - 4 7  94 - 7 2
+    ///     - 6 10 77
+    ///
+    /// 1 3 - 3 4 - 1 4
+    /// 2 4 - 4 7 - 2 7
+    ///     - 6 10
+    /// join attr 1,0 1,0
+    ///
+    /// indexes:
+    /// [, , 0]
+    /// [, , 1]
+    ///
+    /// instead gets [0,0,0]
+    /// [1,1,1]
+    ///
   //std::vector<Table> const&
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
@@ -54,7 +70,6 @@ class Engine {
 
     // Build!!
     for (int c = 0; c < joinAttributeIndices.size(); c++) {
-      auto &buildTable = input[c];
       for (int i = 0; i < input[c][0].size(); i++) {
 
         auto buildValue = input[c][joinAttributeIndices[c].first][i];
@@ -87,7 +102,7 @@ class Engine {
           while (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() != val)
           hash = (hash + 1) % hashTables[j].size();
         
-          if (hashTables[j][hash].first.value() == val) {
+          if (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() == val) {
             // Add to indexes
             for (int l = 0; l < hashTables[j][hash].second.size(); l++) {
               indexes[j].push_back(hashTables[j][hash].second[l]);
