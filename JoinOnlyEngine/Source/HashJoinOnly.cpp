@@ -29,49 +29,91 @@ class Engine {
  * TODO: MAKE MULTIWAY
  */
 
+    int HASHTABLESIZE = 4096;
+
     std::hash<simplificationLayer::Value> valueHash;
     // Chose first table as build table
-    // First in pair is the value, second is index
-    vector<std::optional<std::pair<simplificationLayer::Value, size_t>>> hashTable;
+    // First in pair is the value, second is vector of index
+    vector<vector<std::optional<std::pair<simplificationLayer::Value, vector<size_t>>>>> hashTables(
+      joinAttributeIndices.size(),
+      vector<std::optional<std::pair<simplificationLayer::Value, vector<size_t>>>>(HASHTABLESIZE));
     int nextSlot;
 
     // Build!!
-    auto &buildTable = input[0];
-    for (int i = 0; i < buildTable[0].size(); i++) {
-      auto &buildRow = buildTable[i];
+    for (int c = 0; c < joinAttributeIndices.size(); c++) {
+      auto &buildTable = input[c];
+      for (int i = 0; i < input[c][0].size(); i++) {
 
-      auto buildValue =buildRow[joinAttributeIndices[0].first];
-      int hash = valueHash(buildValue);
-      // Handle repeats
-      while (hashTable[hash].has_value())
-        hash = (hash + 1) % hashTable.size();
-      hashTable[hash]->first = buildValue;
-      hashTable[hash]->second = i;
+        auto buildValue = input[c][joinAttributeIndices[c].first][i];
+        int hash = valueHash(buildValue) % hashTables[c].size();
+        // Handle repeats
+        while (hashTables[c][hash].has_value())
+          hash = (hash + 1) % hashTables[c].size();
+        hashTables[c][hash]->first = buildValue;
+        hashTables[c][hash]->second.push_back(i);
+      }
     }
 
-    // Join!!
-    auto &probeTable = input[1];
+    auto &probeTable = input[input.size()-1];
     for (int i = 0; i < probeTable[0].size(); i++) {
-      auto &probeRow = probeTable[i];
-      auto probeInput = probeRow[joinAttributeIndices[0].second];
-      int hash = valueHash(probeInput);
-      while (hashTable[hash].has_value() && hashTable[hash].value().first != probeInput)
-        hash = (hash + 1) % hashTable.size();
+      // Each row in the probe table
 
-      if (hashTable[hash].value().first == probeInput) {
-        vector<simplificationLayer::Value> resultTuple;
-        for(auto& column : input[0]) {
-          // Built table
-          resultTuple.push_back(column[hashTable[hash].value().second]);
+      vector<vector<int>> indexes(input.size()); // Indexes of the join
+      indexes[input.size()-1].push_back(i); // Index of last table is i
+
+      for (int j = hashTables.size() - 1; j > 0; j--) {
+        // For each hashtable, backwards
+        vector<int> curIndexes;
+        for (int k = 0; k < indexes[j+1].size(); j++) {
+          // For each index of the hashtable ahead
+          int index = indexes[j+1][k];
+          auto val = input[j+1][joinAttributeIndices[j].second][index];
+          int hash = valueHash(val) % hashTables[j].size();
+
+          // handle clashes
+          while (hashTables[j][hash].has_value() && hashTables[j][hash].value().first != val)
+          hash = (hash + 1) % hashTables[j].size();
+        
+          if (hashTables[j][hash].value().first == val) {
+            // Add to indexes
+            for (int l = 0; l < hashTables[j][hash].value().second.size(); l++) {
+              indexes[j].push_back(hashTables[j][hash].value().second[l]);
+            }
+          }
         }
-        for(auto& column : input[1]) {
-          // Probe table
-          resultTuple.push_back(column[i]);
-        }
-        // Append
-        helper.appendOutput(resultTuple);
       }
 
+      // Return result of indexes!
+      
+      vector<int> cursors(indexes.size());
+      auto num = 1; // Total number of additions
+      // Check for initial overflow
+      for (int j = 0; j < cursors.size(); j++) {
+        num *= indexes[j].size();
+      }
+
+      for (int j = 0; j < num; j++) {
+        // get cursor nums from total num
+        cursors[0] = indexes[0].size();
+        for (int k = 1; k < cursors.size(); k++) {
+          cursors[k] = cursors[k-1] % indexes[k].size();
+        }
+
+        // populate resultTuple
+        vector<simplificationLayer::Value> resultTuple;
+
+        for (int j = 0; j < cursors.size(); j++) {
+          // for each cursor
+          // for each col in table
+          for (int k = 0; k < input[j].size(); k++) {
+            // push value
+            resultTuple.push_back(input[j][k][cursors[j]]);
+          }
+        }
+
+        // Append!
+        helper.appendOutput(resultTuple);
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
