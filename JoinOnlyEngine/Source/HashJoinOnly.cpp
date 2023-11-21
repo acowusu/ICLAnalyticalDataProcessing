@@ -5,6 +5,7 @@
 #include <Algorithm.hpp>
 #include <Expression.hpp>
 #include <ExpressionUtilities.hpp>
+#include <iostream>
 #include <Utilities.hpp>
 #include <mutex>
 #include <optional>
@@ -23,20 +24,32 @@ class Engine {
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
+
+    vector<vector<vector<int64_t>>> inputs(input.size(), vector<vector<int64_t>>(100, vector<int64_t>(100)));
+
+    for(int j = 0; j < input.size(); j++) {
+      for(int k = 0; k < input[j].size(); k++)
+      {
+        for(int l = 0; l < input[j][k].size(); l++)
+        {
+          inputs[j][k][l] = std::get<int64_t>(input[j][k][l]);
+        }
+      }
+    }
 /**
  * THIS IS CURRENTLY ONLY A HASHJOIN SINGLEWAY.
  *
  * TODO: MAKE MULTIWAY
  */
 
-    int HASHTABLESIZE = 4096;
+    int const HASH_TABLE_SIZE = 1024 * 256;
 
-    std::hash<simplificationLayer::Value> valueHash;
+    std::hash<simplificationLayer::Value> const valueHash;
     // Chose first table as build table
     // First in pair is the value, second is vector of index
-    vector<vector<std::optional<std::pair<simplificationLayer::Value, vector<size_t>>>>> hashTables(
+    vector<vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>> hashTables(
       joinAttributeIndices.size(),
-      vector<std::optional<std::pair<simplificationLayer::Value, vector<size_t>>>>(HASHTABLESIZE));
+      vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(HASH_TABLE_SIZE));
     int nextSlot;
 
     // Build!!
@@ -45,12 +58,12 @@ class Engine {
       for (int i = 0; i < input[c][0].size(); i++) {
 
         auto buildValue = input[c][joinAttributeIndices[c].first][i];
-        int hash = valueHash(buildValue) % hashTables[c].size();
+        size_t hash = valueHash(buildValue) % hashTables[c].size();
         // Handle repeats
-        while (hashTables[c][hash].has_value())
+        while (hashTables[c][hash].first.has_value())
           hash = (hash + 1) % hashTables[c].size();
-        hashTables[c][hash]->first = buildValue;
-        hashTables[c][hash]->second.push_back(i);
+        hashTables[c][hash].first = buildValue;
+        hashTables[c][hash].second.push_back(i);
       }
     }
 
@@ -58,33 +71,35 @@ class Engine {
     for (int i = 0; i < probeTable[0].size(); i++) {
       // Each row in the probe table
 
-      vector<vector<int>> indexes(input.size()); // Indexes of the join
+      vector<vector<size_t>> indexes(input.size(), vector<size_t>(0, 0)); // Indexes of the join
       indexes[input.size()-1].push_back(i); // Index of last table is i
 
-      for (int j = hashTables.size() - 1; j > 0; j--) {
+      for (int j = hashTables.size() - 1; j >= 0; j--) {
         // For each hashtable, backwards
         vector<int> curIndexes;
-        for (int k = 0; k < indexes[j+1].size(); j++) {
+        for (int k = 0; k < indexes[j+1].size(); k++) {
           // For each index of the hashtable ahead
           int index = indexes[j+1][k];
           auto val = input[j+1][joinAttributeIndices[j].second][index];
           int hash = valueHash(val) % hashTables[j].size();
 
           // handle clashes
-          while (hashTables[j][hash].has_value() && hashTables[j][hash].value().first != val)
+          while (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() != val)
           hash = (hash + 1) % hashTables[j].size();
         
-          if (hashTables[j][hash].value().first == val) {
+          if (hashTables[j][hash].first.value() == val) {
             // Add to indexes
-            for (int l = 0; l < hashTables[j][hash].value().second.size(); l++) {
-              indexes[j].push_back(hashTables[j][hash].value().second[l]);
+            for (int l = 0; l < hashTables[j][hash].second.size(); l++) {
+              indexes[j].push_back(hashTables[j][hash].second[l]);
             }
           }
         }
       }
 
       // Return result of indexes!
-      
+
+
+
       vector<int> cursors(indexes.size());
       auto num = 1; // Total number of additions
       // Check for initial overflow
