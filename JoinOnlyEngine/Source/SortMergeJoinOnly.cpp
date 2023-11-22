@@ -68,26 +68,7 @@ class Engine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    int debug = 3;
-    if(debug == 1) {
-      std::cout << "Sorted Tables" << std::endl;
-      std::cout << "Count: " << input.size() << std::endl;
-      for(int i = 0; i < input.size(); i++) {
-        std::cout << "Table " << i << std::endl;
-        for(int j = 0; j < input[i][0].size(); j++) {
-          for(int k = 0; k < input[i].size(); ++k) {
-            std::cout << std::get<int64_t>(input[i][k][j]) << " ";
-          }
-          std::cout << std::endl;
-        }
-      }
-      std::cout << "Join Attribute Indices" << std::endl;
-      for(int i = 0; i < join_attribute_indices.size(); i++) {
-        std::cout << join_attribute_indices[i].first << " " << join_attribute_indices[i].second
-                  << std::endl;
-      }
-      std::cout << "END DEBUG" << std::endl;
-    }
+
 
     size_t const num_join_attributes = join_attribute_indices.size();
 
@@ -124,44 +105,16 @@ class Engine {
       simplificationLayer::Value rv = right_table[right_index][right_cursor];
 
       //      Before we start lets print the tables
-      //      std::cout << "Left table  " << left_table.size() << "x" << left_table[0].size() <<
-      //      std::endl;
 
-      if(debug == 2) {
-        std::cout << "Left table  " << left_table.size() << "x" << left_table[0].size()
-                  << std::endl;
-        for(int i = 0; i < left_table[0].size(); i++) {
 
-          for(int j = 0; j < left_table.size()-1; j++) {
-            if(j == left_index) {
-              std::cout << "=";
-            }
-            std::cout << std::get<int64_t>(left_table[j][i]) << ", ";
-          }
-          std::cout << std::endl;
-        }
-        std::cout << "Right table  " << right_table.size() << "x" << right_table[0].size()
-                  << std::endl;
-        for(int i = 0; i < right_table[0].size(); i++) {
-          for(int j = 0; j < right_table.size()-1; j++) {
-            if(j == right_index) {
-              std::cout << "=";
-            }
-            std::cout << std::get<int64_t>(right_table[j][i]) << ", ";
-          }
-          std::cout << std::endl;
-        }
-      }
+
 
       while(right_cursor < right_table[0].size() && left_cursor < left_table[0].size()) {
         rv = right_table[right_index][right_cursor];
         lv = left_table[left_index][left_cursor];
 
         while(lv > rv) {
-          if(debug == 1) {
-            std::cout << "LV:" << std::get<int64_t>(lv) << " > "
-                      << "RV:" << std::get<int64_t>(rv) << std::endl;
-          }
+
           right_cursor++;
           // if overflow
           if(right_cursor >= right_table[0].size()) {
@@ -171,10 +124,6 @@ class Engine {
         }
 
         while(rv > lv) {
-          if(debug == 1) {
-            std::cout << "LV:" << std::get<int64_t>(lv) << " < "
-                      << "RV:" << std::get<int64_t>(rv) << std::endl;
-          }
           left_cursor++;
           // if overflow
           if(left_cursor >= left_table[0].size()) {
@@ -191,28 +140,17 @@ class Engine {
           //            duplicates
           while(lv == rv) {
             do {
-              if(debug == 2) {
-                std::cout << "MATCH ["<< left_index << "-" <<right_index <<"] <LV " << left_cursor << ":" << std::get<int64_t>(lv) << " = "
-                          << "RV " << right_cursor << ":"  << std::get<int64_t>(rv) << "> " ;
-              }
+
               for(int j = 0; j < left_table.size(); ++j) {
                 result_table[j].push_back(left_table[j][left_cursor]);
-                if(debug == 2 && j < left_table.size()-1) {
-                  std::cout << std::get<int64_t>(left_table[j][left_cursor]) << " ";
-                }
+
               }
-              if(debug == 2 ) {
-                std::cout << "| ";
-              }
+
               for(int j = 0; j < right_table.size(); ++j) {
                 result_table[j + left_table.size()].push_back(right_table[j][right_cursor]);
-                if(debug == 2 && j < right_table.size()-1) {
-                  std::cout << std::get<int64_t>(right_table[j][right_cursor]) << " ";
-                }
+
               }
-              if(debug == 2) {
-                std::cout << std::endl;
-              }
+
             } while(right_table[0].size() > ++right_cursor &&
                     right_table[right_index][right_cursor] == lv);
             left_cursor++;
@@ -236,22 +174,14 @@ class Engine {
     }; // -- End for each join attribute --
 
     //    OUTPUt as rows
-    if(debug == 1) {
-      std::cout << "Results:" << result_table.size() << " by" << result_table[0].size()
-                << std::endl;
-    }
+
     for(int i = 0; i < result_table[0].size(); ++i) {
       vector<simplificationLayer::Value> resultRow;
       for(int j = 0; j < result_table.size(); ++j) {
         resultRow.push_back(result_table[j][i]);
-        if(debug == 1) {
-          std::cout << std::get<int64_t>(result_table[j][i]) << " ";
-        }
       }
       helper.appendOutput(resultRow);
-      if(debug == 1) {
-        std::cout << std::endl;
-      }
+
     }
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
