@@ -14,6 +14,26 @@
 namespace boss::engines::joinonly {
 using std::vector;
 
+/**
+ * @brief Partitions a Table based on a pivot value from a specified column.
+ *
+ * This function takes a Table and partitions it based on the values in the
+ * `sort_index`. It uses the Hoare partition scheme
+ * (see https://en.wikipedia.org/wiki/Quicksort#Hoare_partition_scheme),
+ * choosing a pivot from the middle of the range. The elements less than the
+ * pivot are moved to the left, and those greater are moved to the right.
+ *
+ * @param table The table to be partitioned must be non const.
+ * @param sort_index The index of the column used for partitioning.
+ * @param start The starting index of the range to partition (INCLUSIVE).
+ * @param end The ending index of the range to partition (INCLUSIVE).
+ * @return The final index of the pivot element after partitioning.
+ *
+ * @note The partition is done in-place, modifying the original vector
+ *       so must be mutable.
+ * @warning The function assumes that the values in the sort column support
+ *          the comparison operators (< and >).
+ */
 size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_index, size_t start,
                       size_t end) {
   std::vector<simplificationLayer::Value> const& pivot_column = table[sort_index];
@@ -34,6 +54,7 @@ size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_in
     if(i >= j) {
       return j;
     }
+    // Swap rows
     for(size_t columnIndex = 0; columnIndex < COLUMN_COUNT; columnIndex++) {
       simplificationLayer::Value temp = table[columnIndex][i];
       table[columnIndex][i] = table[columnIndex][j];
@@ -43,9 +64,24 @@ size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_in
 }
 
 /**
- * If secondary_sort_index is -1, ignore.
+ * @brief Sorts a vector of columns in ascending order based on a specified column index.
+ *
+ * This function implements the Quicksort algorithm to sort a table. It
+ * recursively partitions the table based on the values in the specified sort_index
+ * column. The partitioning is done in-place, modifying the original vector.
+ *
+ * @param table The table to be sorted.
+ * @param sort_index The index of the column used for sorting.
+ * @param start The starting index of the range to be sorted.
+ * @param end The ending index of the range to be sorted.
+ *
+ * @note The sorting is done in-place, modifying the original vector.
+ * @warning The function assumes that the values in the specified columns support
+ *          the comparison operators (< and >).
+ * @warning The function does not check if start and end indices are within the valid
+ *          range. Specifically to sort a whole vector the end index
+ *          should be set to vector.size() - 1.
  */
-// Sorts a table in place in ascending order by primary_sort_index, then secondary_sort_index
 void quicksortTable(vector<simplificationLayer::Column>& table, size_t sort_index, size_t start,
                     size_t end) {
   if(start >= 0 && end >= 0 && start < end) {
