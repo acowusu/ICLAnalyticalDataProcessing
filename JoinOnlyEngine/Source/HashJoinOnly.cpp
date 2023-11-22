@@ -133,7 +133,7 @@ class Engine {
         //for (int k = 1; k < cursors.size(); k++) {
           //cursors[k] = cursors[k-1] % indexes[k].size();
         //}
-        vector<int> cursors(indexes.size());
+        vector<int> cursors(0);
         for (auto& index: indexes)
         {
           cursors.push_back(index[temp % index.size()]);
@@ -146,8 +146,9 @@ class Engine {
         for (int j = 0; j < cursors.size(); j++) {
           // for each cursor
           // for each col in table
-          for (int k = 0; k < input[j].size(); k++) {
+          for (int k = 0; k < input[j].size(); k++) { //SIGFAULT HERE!
             // push value
+            // !! K is 3?!
             resultTuple.push_back(input[j][k][cursors[j]]);
           }
         }
