@@ -40,7 +40,32 @@ class Engine {
     /// instead gets [0,0,0]
     /// [1,1,1]
     ///
-  //std::vector<Table> const&
+    ///
+    ///"FirstBegin"_("List"_(1, 2, 3, 4, 5, 6, 4, 7, 1)),
+    //"FirstEnd"_("List"_(2, 3, 1, 5, 4, 5, 6, 3, 7)),
+    //"FirstLength"_("List"_(10.0, 7.0, 8.0, 2.0, 15.0, 12.0, 4.0, 20.0, 6.0)));
+    ///"SecondBegin"_("List"_(1, 2, 3, 4, 5, 6, 4, 7, 1)),
+    ///"SecondEnd"_("List"_(2, 3, 1, 5, 4, 5, 6, 3, 7)),
+
+    /// 1 2 - 1
+    /// 2 3 - 2
+    /// 3 1 - 3
+    /// 4 5 - 4
+    /// 5 4 - 5
+    /// 6 5 - 6
+    /// 4 6 - 4
+    /// 7 3 - 7
+    /// 1 7 - 1
+    ///
+    /// 2 - 27240
+    /// 3 - 102019
+    /// 1 - 252681
+    /// 5 -
+    ///
+    /// cursors;
+    /// [2, 0]
+    /// [0, 1]
+    /// [[1, 7], 2]
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
@@ -62,10 +87,15 @@ class Engine {
         auto buildValue = input[c][joinAttributeIndices[c].first][i];
         size_t hash = valueHash(buildValue) % hashTables[c].size();
         // Handle repeats
-        while (hashTables[c][hash].first.has_value())
+        while (hashTables[c][hash].first.has_value() && hashTables[c][hash].first.value() != buildValue)
           hash = (hash + 1) % hashTables[c].size();
         hashTables[c][hash].first = buildValue;
         hashTables[c][hash].second.push_back(i);
+        if (hashTables[c][hash].second.size() > 1)
+        {
+          // We have a repeat!
+          int unusedvar = 0; // used for testing
+        }
       }
     }
 
