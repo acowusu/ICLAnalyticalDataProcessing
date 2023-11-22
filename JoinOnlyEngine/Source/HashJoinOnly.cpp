@@ -24,6 +24,10 @@ class Engine {
     /// 2 4 - 4 7  94 - 7 2
     ///     - 6 10 77
     ///
+    /// 1,0 1,0
+    /// [0, 0, 0]
+    /// [1, 1, 1]
+    ///
     /// 1 3 - 3 4 - 1 4
     /// 2 4 - 4 7 - 2 7
     ///     - 6 10
@@ -115,18 +119,25 @@ class Engine {
 
 
 
-      vector<int> cursors(indexes.size());
+
       auto num = 1; // Total number of additions
       // Check for initial overflow
-      for (int j = 0; j < cursors.size(); j++) {
+      for (int j = 0; j < indexes.size(); j++) {
         num *= indexes[j].size();
       }
 
       for (int j = 0; j < num; j++) {
         // get cursor nums from total num
-        cursors[0] = indexes[0].size();
-        for (int k = 1; k < cursors.size(); k++) {
-          cursors[k] = cursors[k-1] % indexes[k].size();
+        //cursors[0] = indexes[0].size();
+        int temp = j;
+        //for (int k = 1; k < cursors.size(); k++) {
+          //cursors[k] = cursors[k-1] % indexes[k].size();
+        //}
+        vector<int> cursors(indexes.size());
+        for (auto& index: indexes)
+        {
+          cursors.push_back(index[temp % index.size()]);
+          temp /= index.size();
         }
 
         // populate resultTuple
