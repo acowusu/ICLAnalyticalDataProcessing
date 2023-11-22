@@ -1,4 +1,13 @@
 # Discussion #
+# Sort-merge join
+This implementation works by decomposing the n-ary join into a series of binary joins, which are then executed in a sorted manner. 
+
+In the first step the left table is treated as the result table and the right table is joined to it forming a new result table. 
+This result talble is then repeatedly joined with the next right table  and updated until all tables have been joined.
+
+This implementation has a complexity of `O(n * log(n))` for the sorting step for each table which is the most expensive part of the algorithm. 
+
+The total complexity is the sum for each table - for tables `T1, T2, ..., Tn` the complexity is `O(T1 * log(T1) + T2 * log(T)) + ... + Tn * log(Tn))`.
 
 # Hash-join
 This implementation works by creating a hash table for each table, except the last table, and then probes backwards to come at a solution.
