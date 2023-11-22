@@ -17,10 +17,11 @@ using std::vector;
 size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_index, size_t start,
                       size_t end) {
   std::vector<simplificationLayer::Value> const& pivot_column = table[sort_index];
-
+  size_t COLUMN_COUNT = table.size();
   size_t pivot_index = start + (end - start) / 2;
   simplificationLayer::Value pivot_value = pivot_column[pivot_index];
-  size_t i = start, j = end;
+  size_t i = start - 1;
+  size_t j  = end + 1;
   while(1) {
     // Get swap points
     do {
@@ -29,10 +30,11 @@ size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_in
     do {
       j--;
     } while(pivot_column[j] > pivot_value);
+
     if(i >= j) {
       return j;
     }
-    for(size_t columnIndex = 0; i < table.size(); i++) {
+    for(size_t columnIndex = 0; columnIndex < COLUMN_COUNT; columnIndex++) {
       simplificationLayer::Value temp = table[columnIndex][i];
       table[columnIndex][i] = table[columnIndex][j];
       table[columnIndex][j] = temp;
@@ -44,14 +46,13 @@ size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_in
  * If secondary_sort_index is -1, ignore.
  */
 // Sorts a table in place in ascending order by primary_sort_index, then secondary_sort_index
-void quicksortTable(vector<simplificationLayer::Column>& table, size_t primary_sort_index,
-                    size_t start, size_t end) {
-  if(start >= end || start < 0 || end < 0) {
-    return;
+void quicksortTable(vector<simplificationLayer::Column>& table, size_t sort_index, size_t start,
+                    size_t end) {
+  if(start >= 0 && end >= 0 && start < end) {
+    int pivot_index = partitionTable(table, sort_index, start, end);
+    quicksortTable(table, sort_index, start, pivot_index);
+    quicksortTable(table, sort_index, pivot_index + 1, end);
   }
-  int pivot_index = partitionTable(table, primary_sort_index, start, end);
-  quicksortTable(table, primary_sort_index, start, pivot_index);
-  quicksortTable(table, primary_sort_index, pivot_index + 1, end);
 }
 
 class Engine {
@@ -67,7 +68,7 @@ class Engine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    int debug = 0;
+    int debug = 3;
     if(debug == 1) {
       std::cout << "Sorted Tables" << std::endl;
       std::cout << "Count: " << input.size() << std::endl;
@@ -75,7 +76,7 @@ class Engine {
         std::cout << "Table " << i << std::endl;
         for(int j = 0; j < input[i][0].size(); j++) {
           for(int k = 0; k < input[i].size(); ++k) {
-            std::cout << std::get<int64_t>(input[i][k][j])  << " ";
+            std::cout << std::get<int64_t>(input[i][k][j]) << " ";
           }
           std::cout << std::endl;
         }
@@ -106,8 +107,8 @@ class Engine {
 
       vector<vector<std::variant<long, double>>> left_table = first ? input[0] : builder_table;
       first = false;
-      vector<simplificationLayer::Column>& right_table =
-          const_cast<vector<simplificationLayer::Column>&>(input[i + 1]);
+      vector<simplificationLayer::Column> right_table =
+          input[i + 1];
       //      build empty results table
       for(int j = 0; j < left_table.size() + right_table.size(); j++) {
         result_table.push_back(vector<simplificationLayer::Value>());
@@ -123,12 +124,15 @@ class Engine {
       simplificationLayer::Value rv = right_table[right_index][right_cursor];
 
       //      Before we start lets print the tables
-//      std::cout << "Left table  " << left_table.size() << "x" << left_table[0].size() << std::endl;
+      //      std::cout << "Left table  " << left_table.size() << "x" << left_table[0].size() <<
+      //      std::endl;
 
-      if(debug==1){
+      if(debug == 2) {
+        std::cout << "Left table  " << left_table.size() << "x" << left_table[0].size()
+                  << std::endl;
         for(int i = 0; i < left_table[0].size(); i++) {
 
-          for(int j = 0; j < left_table.size(); j++) {
+          for(int j = 0; j < left_table.size()-1; j++) {
             if(j == left_index) {
               std::cout << "=";
             }
@@ -139,7 +143,7 @@ class Engine {
         std::cout << "Right table  " << right_table.size() << "x" << right_table[0].size()
                   << std::endl;
         for(int i = 0; i < right_table[0].size(); i++) {
-          for(int j = 0; j < right_table.size(); j++) {
+          for(int j = 0; j < right_table.size()-1; j++) {
             if(j == right_index) {
               std::cout << "=";
             }
@@ -187,26 +191,26 @@ class Engine {
           //            duplicates
           while(lv == rv) {
             do {
-              if(debug == 1) {
-                std::cout << "MATCH <LV:" << std::get<int64_t>(lv) << " = "
-                          << "RV:" << std::get<int64_t>(rv) << "> ";
+              if(debug == 2) {
+                std::cout << "MATCH ["<< left_index << "-" <<right_index <<"] <LV " << left_cursor << ":" << std::get<int64_t>(lv) << " = "
+                          << "RV " << right_cursor << ":"  << std::get<int64_t>(rv) << "> " ;
               }
               for(int j = 0; j < left_table.size(); ++j) {
                 result_table[j].push_back(left_table[j][left_cursor]);
-                if(debug==1){
+                if(debug == 2 && j < left_table.size()-1) {
                   std::cout << std::get<int64_t>(left_table[j][left_cursor]) << " ";
                 }
               }
-              if(debug==1){
+              if(debug == 2 ) {
                 std::cout << "| ";
               }
               for(int j = 0; j < right_table.size(); ++j) {
                 result_table[j + left_table.size()].push_back(right_table[j][right_cursor]);
-                if(debug==1){
+                if(debug == 2 && j < right_table.size()-1) {
                   std::cout << std::get<int64_t>(right_table[j][right_cursor]) << " ";
                 }
               }
-              if(debug==1){
+              if(debug == 2) {
                 std::cout << std::endl;
               }
             } while(right_table[0].size() > ++right_cursor &&
