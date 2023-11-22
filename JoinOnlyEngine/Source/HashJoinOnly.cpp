@@ -45,18 +45,17 @@ class Engine {
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
 
-    int const HASH_TABLE_SIZE = 1024 * 256;
 
     std::hash<simplificationLayer::Value> const valueHash;
-    // Chose first table as build table
     // First in pair is the value, second is vector of index
     vector<vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>> hashTables(
-      joinAttributeIndices.size(),
-      vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(HASH_TABLE_SIZE));
+      joinAttributeIndices.size());
     int nextSlot;
 
     // Build!!
     for (int c = 0; c < joinAttributeIndices.size(); c++) {
+      hashTables[c] = vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(
+        input[c][0].size() * 2);
       for (int i = 0; i < input[c][0].size(); i++) {
 
         auto buildValue = input[c][joinAttributeIndices[c].first][i];
