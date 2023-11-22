@@ -67,23 +67,22 @@ class Engine {
     /// cursors;
     /// [[1, 7], 2, 0]
     /// [2, 0, 1]
-    /// [[], [1, 7], 2]
+    /// [[[0,1,2],[8,7,2]], [[1, 2], [7, 2]], 2]
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
 
-    int const HASH_TABLE_SIZE = 1024 * 256;
 
     std::hash<simplificationLayer::Value> const valueHash;
-    // Chose first table as build table
     // First in pair is the value, second is vector of index
     vector<vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>> hashTables(
-      joinAttributeIndices.size(),
-      vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(HASH_TABLE_SIZE));
+      joinAttributeIndices.size());
     int nextSlot;
 
     // Build!!
     for (int c = 0; c < joinAttributeIndices.size(); c++) {
+      hashTables[c] = vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(
+        input[c][0].size() * 2);
       for (int i = 0; i < input[c][0].size(); i++) {
 
         auto buildValue = input[c][joinAttributeIndices[c].first][i];
@@ -102,29 +101,44 @@ class Engine {
     }
 
     auto &probeTable = input[input.size()-1];
-    for (int i = 0; i < probeTable[0].size(); i++) {
+    for (int i = 0; i < probeTable[0].size(); i++)
+    {
       // Each row in the probe table
 
-      vector<vector<size_t>> indexes(input.size(), vector<size_t>(0, 0)); // Indexes of the join
-      indexes[input.size()-1].push_back(i); // Index of last table is i
+      /**
+       * This data object contains the values of the join.
+       * [[[4,1,0],[3,2,0]], [[1,0],[2,0]], [[0]]]
+       * Implies that we have a join on cursors 4,1,0 and 3,2,0
+       */
+      vector<vector<vector<size_t>>> indexes(input.size(), vector<vector<size_t>>(0, vector<size_t>(0))); // Indexes of the join
+      indexes[input.size()-1].emplace_back(0);
+      indexes[input.size()-1][0].push_back(i); // Index of last table is i
 
       for (int j = hashTables.size() - 1; j >= 0; j--) {
         // For each hashtable, backwards
         vector<int> curIndexes;
         for (int k = 0; k < indexes[j+1].size(); k++) {
           // For each index of the hashtable ahead
-          int index = indexes[j+1][k];
-          auto val = input[j+1][joinAttributeIndices[j].second][index];
+          vector<size_t> index = indexes[j+1][k];
+          auto val = input[j+1][joinAttributeIndices[j].second][index[0]];
           int hash = valueHash(val) % hashTables[j].size();
 
           // handle clashes
           while (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() != val)
-          hash = (hash + 1) % hashTables[j].size();
+            hash = (hash + 1) % hashTables[j].size();
         
           if (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() == val) {
             // Add to indexes
             for (int l = 0; l < hashTables[j][hash].second.size(); l++) {
-              indexes[j].push_back(hashTables[j][hash].second[l]);
+              vector<size_t> newIndex;
+              newIndex.push_back(hashTables[j][hash].second[l]);
+              for (auto ind: index)
+              {
+                newIndex.push_back(ind);
+              }
+
+              indexes[j].push_back(newIndex);
+              //indexes[j].push_back(hashTables[j][hash].second[l]);
             }
           }
         }
@@ -133,9 +147,27 @@ class Engine {
       // Return result of indexes!
 
 
+      for (auto ind: indexes[0])
+      {
+        // populate resultTuple
+        vector<simplificationLayer::Value> resultTuple;
 
+        for (int j = 0; j < ind.size(); j++) {
+          // for each cursor
+          // for each col in table
+          for (int k = 0; k < input[j].size(); k++) { //SIGFAULT HERE!
+            // push value
+            // !! K is 3?!
+            resultTuple.push_back(input[j][k][ind[j]]);
+          }
+        }
 
-      auto num = 1; // Total number of additions
+        // Append!
+        helper.appendOutput(resultTuple);
+      }
+    }
+
+      /*auto num = 1; // Total number of additions
       // Check for initial overflow
       for (int j = 0; j < indexes.size(); j++) {
         num *= indexes[j].size();
@@ -171,7 +203,7 @@ class Engine {
         // Append!
         helper.appendOutput(resultTuple);
       }
-    }
+    }*/
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
