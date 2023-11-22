@@ -20,58 +20,9 @@ class Engine {
     ////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Your code starts here ////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
-    /// 1 3 - 3 4  32 - 4 1
-    /// 2 4 - 4 7  94 - 7 2
-    ///     - 6 10 77
-    ///
-    /// 1,0 1,0
-    /// [0, 0, 0]
-    /// [1, 1, 1]
-    ///
-    /// 1 3 - 3 4 - 1 4
-    /// 2 4 - 4 7 - 2 7
-    ///     - 6 10
-    /// join attr 1,0 1,1
-    ///
-    /// indexes:
-    /// [0, 0, 0]
-    /// [1, 1, 1]
-    ///
-    /// instead gets [0,0,0]
-    /// [1,1,1]
-    ///
-    ///
-    ///"FirstBegin"_("List"_(1, 2, 3, 4, 5, 6, 4, 7, 1)),
-    //"FirstEnd"_("List"_(2, 3, 1, 5, 4, 5, 6, 3, 7)),
-    //"FirstLength"_("List"_(10.0, 7.0, 8.0, 2.0, 15.0, 12.0, 4.0, 20.0, 6.0)));
-    ///"SecondBegin"_("List"_(1, 2, 3, 4, 5, 6, 4, 7, 1)),
-    ///"SecondEnd"_("List"_(2, 3, 1, 5, 4, 5, 6, 3, 7)),
-    ///"Table"_("ThirdBegin"_("List"_(1, 2, 3, 4, 5, 6, 4, 7, 1)),
-    //"ThirdEnd"_("List"_(2, 3, 1, 5, 4, 5, 6, 3, 7)),
-    //"ThirdLength"_("List"_(10.0, 7.0, 8.0, 2.0, 15.0, 12.0, 4.0, 20.0, 6.0)));
 
-    /// 1 2 - 1 2 - 1
-    /// 2 3 - 2 3 - 2
-    /// 3 1 - 3 1 - 3
-    /// 4 5 - 4 5 - 4
-    /// 5 4 - 5 4 - 5
-    /// 6 5 - 6 5 - 6
-    /// 4 6 - 4 6 - 4
-    /// 7 3 - 7 3 - 7
-    /// 1 7 - 1 7 - 1
-    ///
-    /// 2 - 27240
-    /// 3 - 102019
-    /// 1 - 252681
-    ///
-    /// cursors;
-    /// [[1, 7], 2, 0]
-    /// [2, 0, 1]
-    /// [[[0,1,2],[8,7,2]], [[1, 2], [7, 2]], 2]
     auto const& input = helper.getInputs();
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
-
-
 
     std::hash<simplificationLayer::Value> const valueHash;
     // First in pair is the value, second is vector of index
@@ -79,7 +30,7 @@ class Engine {
       joinAttributeIndices.size());
     int nextSlot;
 
-    // Build!!
+    // First, we Build!!
     for (int c = 0; c < joinAttributeIndices.size(); c++) {
       hashTables[c] = vector<std::pair<std::optional<simplificationLayer::Value>, vector<size_t>>>(
         input[c][0].size() * 2);
@@ -130,6 +81,12 @@ class Engine {
           if (hashTables[j][hash].first.has_value() && hashTables[j][hash].first.value() == val) {
             // Add to indexes
             for (int l = 0; l < hashTables[j][hash].second.size(); l++) {
+              // This new index is the details of the last index, with the addition of the current
+              // found mapping. This is O(n), and can be inefficient with longer join chains.
+              // We have opted for code readability instead of this slight code improvement, meaning
+              // we dont have to work backwards.
+              // In addition, some compilers on some architectures can optimise this, to have the vector
+              // point to the next vector.
               vector<size_t> newIndex;
               newIndex.push_back(hashTables[j][hash].second[l]);
               for (auto ind: index)
@@ -138,7 +95,6 @@ class Engine {
               }
 
               indexes[j].push_back(newIndex);
-              //indexes[j].push_back(hashTables[j][hash].second[l]);
             }
           }
         }
@@ -146,18 +102,28 @@ class Engine {
 
       // Return result of indexes!
 
-
+      /**
+       * Implimentation detail:
+       * This can be moved to inside of the probing function, on the last backward
+       * join attribute iteration. This also includes making the indexes object only have a size of 2;
+       * [0] being the current iteration, and
+       * [1] being the iteration before.
+       *
+       * However, the increased memory cost means we dont have to do memory moving, and we obtain
+       * data that can be used to optimise further queries in a more complex system.
+       *
+       * Lastly, this provides a seperation for more fine grained threading details, if the need arises.
+       */
       for (auto ind: indexes[0])
       {
         // populate resultTuple
         vector<simplificationLayer::Value> resultTuple;
 
         for (int j = 0; j < ind.size(); j++) {
-          // for each cursor
+          // for each index
           // for each col in table
-          for (int k = 0; k < input[j].size(); k++) { //SIGFAULT HERE!
+          for (int k = 0; k < input[j].size(); k++) {
             // push value
-            // !! K is 3?!
             resultTuple.push_back(input[j][k][ind[j]]);
           }
         }
@@ -166,44 +132,6 @@ class Engine {
         helper.appendOutput(resultTuple);
       }
     }
-
-      /*auto num = 1; // Total number of additions
-      // Check for initial overflow
-      for (int j = 0; j < indexes.size(); j++) {
-        num *= indexes[j].size();
-      }
-
-      for (int j = 0; j < num; j++) {
-        // get cursor nums from total num
-        //cursors[0] = indexes[0].size();
-        int temp = j;
-        //for (int k = 1; k < cursors.size(); k++) {
-          //cursors[k] = cursors[k-1] % indexes[k].size();
-        //}
-        vector<int> cursors(0);
-        for (auto& index: indexes)
-        {
-          cursors.push_back(index[temp % index.size()]);
-          temp /= index.size();
-        }
-
-        // populate resultTuple
-        vector<simplificationLayer::Value> resultTuple;
-
-        for (int j = 0; j < cursors.size(); j++) {
-          // for each cursor
-          // for each col in table
-          for (int k = 0; k < input[j].size(); k++) { //SIGFAULT HERE!
-            // push value
-            // !! K is 3?!
-            resultTuple.push_back(input[j][k][cursors[j]]);
-          }
-        }
-
-        // Append!
-        helper.appendOutput(resultTuple);
-      }
-    }*/
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
