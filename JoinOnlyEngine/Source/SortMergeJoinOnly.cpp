@@ -41,7 +41,7 @@ size_t partitionTable(vector<simplificationLayer::Column>& table, size_t sort_in
   size_t pivot_index = start + (end - start) / 2;
   simplificationLayer::Value pivot_value = pivot_column[pivot_index];
   size_t i = start - 1;
-  size_t j  = end + 1;
+  size_t j = end + 1;
   while(1) {
     // Get swap points
     do {
@@ -91,6 +91,83 @@ void quicksortTable(vector<simplificationLayer::Column>& table, size_t sort_inde
   }
 }
 
+/**
+ * @brief Outputs rows one by one from a table in column-store form.
+ *
+ * This function takes a JoinHelper object and a table in column-store form and outputs
+ * the rows one by one.
+ *
+ * @param helper The JoinHelper responsible for pushing the data to the next stage in the pipeline.
+ * @param result_table The vector of column vectors representing the table in column-store form.
+ *
+ * @note The function assumes that the input table is well-formed and has consistent column lengths.
+ */
+inline void outputRows(simplificationLayer::JoinHelper& helper,
+                       const vector<vector<simplificationLayer::Value>>& result_table) {
+  for(int i = 0; i < result_table[0].size(); ++i) {
+    std::__1::vector<simplificationLayer::Value> resultRow;
+    for(int j = 0; j < result_table.size(); ++j) {
+      resultRow.push_back(result_table[j][i]);
+    }
+    helper.appendOutput(resultRow);
+  }
+}
+
+/**
+ * @brief Handles a match during a join operation by populating the result table.
+ *
+ * This function is responsible for handling a match between values in the left and right tables
+ * during a join.
+ * It keeps track of duplicates in both tables ensuring that the cartesian product is given for
+ * the set of rows that match.
+ *
+ * @param result_table The vector of columns representing the result table.
+ * @param left_table The vector of columns representing the left table in column-store form.
+ * @param right_table The vector of columns representing the right table.
+ * @param left_index The index of the column in the left table used for matching.
+ * @param right_index The index of the column in the right table used for matching.
+ * @param left_cursor The cursor indicating the current position in the left table.
+ * @param right_cursor The cursor indicating the current position in the right table.
+ * @param lv The current value in the left table used for matching.
+ * @param rv The current value in the right table used for matching.
+ *
+ * @note The function returns with all matching tuples added and the left and right cursors avanced
+ * to the next unique value.
+ *
+ * @warning The function may return cursors that are out of bounds of the table.
+ */
+inline void handleJoinMatch(vector<vector<simplificationLayer::Value>>& result_table,
+                            vector<vector<std::variant<long, double>>>& left_table,
+                            vector<simplificationLayer::Column>& right_table, size_t left_index,
+                            size_t right_index, size_t& left_cursor, size_t& right_cursor,
+                            simplificationLayer::Value lv, const simplificationLayer::Value rv) {
+  size_t old_right_cursor = right_cursor;
+  size_t right_duplicate_count = 0;
+
+  while(lv == rv) {
+    do {
+      for(int j = 0; j < left_table.size(); ++j) {
+        result_table[j].push_back(left_table[j][left_cursor]);
+      }
+      for(int j = 0; j < right_table.size(); ++j) {
+        result_table[j + left_table.size()].push_back(right_table[j][right_cursor]);
+      }
+    } while(right_table[0].size() > ++right_cursor && right_table[right_index][right_cursor] == lv);
+    left_cursor++;
+    right_duplicate_count = right_cursor - old_right_cursor;
+    right_cursor = old_right_cursor;
+    if(left_cursor >= left_table[0].size()) {
+      break;
+    }
+    lv = left_table[left_index][left_cursor];
+  }
+  right_cursor = old_right_cursor + right_duplicate_count;
+  // now either they have stopped matching
+  // Or we got to the end of the left table -> continue and we will exit the loop
+  // both left_cursor and right_cursor should be pointing to the next unique value
+  // if it exists
+}
+
 class Engine {
   simplificationLayer::JoinHelper performMultiwayJoin(simplificationLayer::JoinHelper&& helper) {
 
@@ -103,8 +180,6 @@ class Engine {
         helper.getJoinAttributeIndices();
 
     ////////////////////////////////////////////////////////////////////////////////
-
-
 
     size_t const num_join_attributes = join_attribute_indices.size();
 
@@ -120,13 +195,12 @@ class Engine {
       size_t left_cursor = 0;
       size_t right_cursor = 0;
       builder_table = result_table;
-      result_table.clear();
 
       vector<vector<std::variant<long, double>>> left_table = first ? input[0] : builder_table;
       first = false;
-      vector<simplificationLayer::Column> right_table =
-          input[i + 1];
-      //      build empty results table
+      vector<simplificationLayer::Column> right_table = input[i + 1];
+      //  build empty results table
+      result_table.clear();
       for(int j = 0; j < left_table.size() + right_table.size(); j++) {
         result_table.push_back(vector<simplificationLayer::Value>());
       }
@@ -139,20 +213,13 @@ class Engine {
 
       simplificationLayer::Value lv = left_table[left_index][left_cursor];
       simplificationLayer::Value rv = right_table[right_index][right_cursor];
-
-      //      Before we start lets print the tables
-
-
-
-
+      // -- Begin while there are still rows to join --
       while(right_cursor < right_table[0].size() && left_cursor < left_table[0].size()) {
         rv = right_table[right_index][right_cursor];
         lv = left_table[left_index][left_cursor];
 
         while(lv > rv) {
-
           right_cursor++;
-          // if overflow
           if(right_cursor >= right_table[0].size()) {
             break;
           }
@@ -161,64 +228,24 @@ class Engine {
 
         while(rv > lv) {
           left_cursor++;
-          // if overflow
           if(left_cursor >= left_table[0].size()) {
             break;
           }
           lv = left_table[left_index][left_cursor];
         }
-        //        Then if EQ continue to next table
         if(lv == rv) {
-
-          size_t old_right_cursor = right_cursor;
-          size_t right_duplicate_count = 0;
-          //            We now have to degrade to a nested loop style iteration to cope with
-          //            duplicates
-          while(lv == rv) {
-            do {
-
-              for(int j = 0; j < left_table.size(); ++j) {
-                result_table[j].push_back(left_table[j][left_cursor]);
-
-              }
-
-              for(int j = 0; j < right_table.size(); ++j) {
-                result_table[j + left_table.size()].push_back(right_table[j][right_cursor]);
-
-              }
-
-            } while(right_table[0].size() > ++right_cursor &&
-                    right_table[right_index][right_cursor] == lv);
-            left_cursor++;
-            right_duplicate_count = right_cursor - old_right_cursor;
-            right_cursor = old_right_cursor;
-            if(left_cursor >= left_table[0].size()) {
-              break;
-            }
-            lv = left_table[left_index][left_cursor];
-          }
-          right_cursor = old_right_cursor + right_duplicate_count;
-          //          now ether they have stopped matching in which case LV is 1 ahead.
-          //          Or we got to the end of the left table -> continue and we will exit the loop
-          //          RV should
-          //          both left_cursor and right_cursor should be pointing to the next unique value
-          //          if it exists
+          //  We now have to degrade to a nested loop style iteration to cope with duplicates
+          handleJoinMatch(result_table, left_table, right_table, left_index, right_index,
+                          left_cursor, right_cursor, lv, rv);
         }
-      }
-      //      result table must have added all the colums from the right table
+      } // -- End while there are still rows to join --
+
+      // The next table will join on the right table. but the right tables collum indexes will be
+      // offset by the size of the left table
       column_offset += left_table.size();
     }; // -- End for each join attribute --
 
-    //    OUTPUt as rows
-
-    for(int i = 0; i < result_table[0].size(); ++i) {
-      vector<simplificationLayer::Value> resultRow;
-      for(int j = 0; j < result_table.size(); ++j) {
-        resultRow.push_back(result_table[j][i]);
-      }
-      helper.appendOutput(resultRow);
-
-    }
+    outputRows(helper, result_table);
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// Your code ends here /////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
