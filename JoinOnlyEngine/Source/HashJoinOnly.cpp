@@ -45,23 +45,6 @@ class Engine {
     auto const& joinAttributeIndices = helper.getJoinAttributeIndices();
 
 
-    vector<vector<vector<int64_t>>> inputs(input.size(), vector<vector<int64_t>>(100, vector<int64_t>(100)));
-
-    for(int j = 0; j < input.size(); j++) {
-      for(int k = 0; k < input[j].size(); k++)
-      {
-        for(int l = 0; l < input[j][k].size(); l++)
-        {
-          inputs[j][k][l] = std::get<int64_t>(input[j][k][l]);
-        }
-      }
-    }
-/**
- * THIS IS CURRENTLY ONLY A HASHJOIN SINGLEWAY.
- *
- * TODO: MAKE MULTIWAY
- */
-
     int const HASH_TABLE_SIZE = 1024 * 256;
 
     std::hash<simplificationLayer::Value> const valueHash;
